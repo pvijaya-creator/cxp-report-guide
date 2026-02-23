@@ -1,0 +1,713 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CXP Status Report Generator — How It Works</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Inter', sans-serif; background: #f1f5f9; color: #1e293b; }
+
+  /* Layout */
+  .layout { display: flex; min-height: 100vh; }
+  .sidebar {
+    width: 240px; min-height: 100vh; background: #0f172a; color: #cbd5e1;
+    padding: 24px 16px; position: fixed; top: 0; left: 0; overflow-y: auto;
+  }
+  .sidebar h2 { color: white; font-size: 1rem; margin-bottom: 6px; }
+  .sidebar hr { border: none; border-top: 1px solid #334155; margin: 14px 0; }
+  .sidebar p { font-size: 0.8rem; margin-bottom: 8px; color: #94a3b8; }
+  .sidebar .nav-link {
+    display: block; padding: 7px 10px; border-radius: 6px; color: #94a3b8;
+    text-decoration: none; font-size: 0.85rem; margin-bottom: 2px; cursor: pointer;
+    transition: background 0.15s;
+  }
+  .sidebar .nav-link:hover, .sidebar .nav-link.active { background: #1e3a5f; color: white; }
+  .sidebar .info-pill {
+    background: #1e293b; border-radius: 8px; padding: 10px 12px;
+    font-size: 0.78rem; color: #94a3b8; line-height: 1.5; margin-top: 8px;
+  }
+
+  .main { margin-left: 240px; padding: 32px 40px; max-width: 1100px; }
+
+  /* Hero */
+  .hero {
+    background: linear-gradient(135deg, #0f172a 0%, #1e3a5f 60%, #0e4d92 100%);
+    border-radius: 16px; padding: 40px 48px; margin-bottom: 28px; color: white;
+  }
+  .hero h1 { font-size: 2rem; font-weight: 700; margin-bottom: 8px; }
+  .hero p { font-size: 1rem; opacity: 0.85; }
+
+  /* Tabs */
+  .tab-bar { display: flex; gap: 4px; margin-bottom: 28px; flex-wrap: wrap; }
+  .tab-btn {
+    padding: 9px 18px; border-radius: 8px; border: 1px solid #e2e8f0;
+    background: white; font-size: 0.88rem; font-weight: 600; cursor: pointer;
+    color: #475569; transition: all 0.15s;
+  }
+  .tab-btn:hover { background: #f8fafc; }
+  .tab-btn.active { background: #0e4d92; color: white; border-color: #0e4d92; }
+  .tab-content { display: none; }
+  .tab-content.active { display: block; }
+
+  /* Cards */
+  .step-card {
+    background: white; border: 1px solid #e2e8f0; border-left: 4px solid #0e4d92;
+    border-radius: 10px; padding: 18px 22px; margin-bottom: 12px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+  }
+  .step-num {
+    display: inline-block; background: #0e4d92; color: white; font-weight: 700;
+    font-size: 0.75rem; border-radius: 20px; padding: 2px 10px; margin-bottom: 6px;
+  }
+  .step-card h4 { font-size: 0.98rem; color: #1e293b; margin-bottom: 5px; }
+  .step-card p { font-size: 0.87rem; color: #475569; line-height: 1.6; }
+
+  /* Metric row */
+  .metrics { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 28px; }
+  .metric-card {
+    background: white; border: 1px solid #e2e8f0; border-radius: 10px;
+    padding: 20px; text-align: center; box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+  }
+  .metric-card .num { font-size: 2.2rem; font-weight: 700; color: #0e4d92; }
+  .metric-card .lbl { font-size: 0.8rem; color: #64748b; margin-top: 4px; }
+
+  /* Flow */
+  .flow { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; margin-top: 24px; }
+  .flow-step {
+    border-radius: 12px; padding: 18px 10px; text-align: center;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    min-height: 100px;
+  }
+  .flow-step .icon { font-size: 1.8rem; margin-bottom: 8px; }
+  .flow-step .label { font-size: 0.78rem; font-weight: 600; line-height: 1.4; }
+
+  /* Grid helpers */
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+  .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; }
+
+  /* Boxes */
+  .info-box { background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; padding: 14px 18px; margin-bottom: 16px; font-size: 0.88rem; color: #1e40af; line-height: 1.5; }
+  .warn-box { background: #fffbeb; border: 1px solid #fde68a; border-radius: 8px; padding: 14px 18px; margin-bottom: 16px; font-size: 0.88rem; color: #92400e; line-height: 1.5; }
+
+  /* Update cards */
+  .update-item { border-radius: 8px; padding: 12px 14px; margin-bottom: 8px; }
+  .update-green { background: #f0fdf4; border: 1px solid #86efac; }
+  .update-blue  { background: #eff6ff; border: 1px solid #93c5fd; }
+  .update-red   { background: #fef2f2; border: 1px solid #fca5a5; }
+  .update-item strong { display: block; margin-bottom: 3px; font-size: 0.88rem; }
+  .update-item span   { font-size: 0.82rem; }
+
+  /* Status bars */
+  .status-bar { border-radius: 8px; padding: 12px 16px; margin-bottom: 8px; display: flex; align-items: center; gap: 16px; }
+  .status-bar strong { min-width: 170px; font-size: 0.88rem; }
+  .status-bar span   { font-size: 0.88rem; }
+
+  /* Rule cards */
+  .rule-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 20px; }
+  .rule-card { border-radius: 8px; padding: 10px 14px; font-size: 0.87rem; }
+  .rule-correct { background: #f0fdf4; border-left: 4px solid #16a34a; color: #14532d; }
+  .rule-wrong   { background: #fef2f2; border-left: 4px solid #dc2626; color: #7f1d1d; }
+
+  /* Violation table */
+  .vtable { width: 100%; border-collapse: collapse; margin-top: 12px; }
+  .vtable th { background: #f8fafc; padding: 10px 14px; text-align: left; font-size: 0.82rem; color: #475569; border-bottom: 2px solid #e2e8f0; }
+  .vtable td { padding: 10px 14px; font-size: 0.83rem; border-bottom: 1px solid #f1f5f9; vertical-align: top; }
+  .vtable tr:hover td { background: #f8fafc; }
+
+  /* Checklist */
+  .checklist { columns: 2; gap: 24px; }
+  .check-item { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 10px; break-inside: avoid; }
+  .check-item input[type=checkbox] { margin-top: 2px; cursor: pointer; width: 16px; height: 16px; }
+  .check-item label { font-size: 0.87rem; color: #374151; cursor: pointer; line-height: 1.4; }
+
+  /* Form */
+  .form-section { background: white; border: 1px solid #e2e8f0; border-radius: 12px; padding: 24px; margin-bottom: 20px; }
+  .form-section h3 { font-size: 1rem; margin-bottom: 14px; color: #0f172a; }
+  .form-group { margin-bottom: 14px; }
+  .form-group label { display: block; font-size: 0.84rem; font-weight: 600; color: #374151; margin-bottom: 5px; }
+  .form-group input, .form-group select, .form-group textarea {
+    width: 100%; padding: 9px 12px; border: 1px solid #d1d5db; border-radius: 8px;
+    font-size: 0.87rem; font-family: 'Inter', sans-serif; color: #1e293b;
+    outline: none; transition: border 0.15s;
+  }
+  .form-group input:focus, .form-group select:focus, .form-group textarea:focus { border-color: #0e4d92; }
+  .form-group small { display: block; font-size: 0.78rem; color: #94a3b8; margin-top: 4px; }
+  .form-group textarea { resize: vertical; }
+
+  .btn-primary {
+    background: #0e4d92; color: white; border: none; border-radius: 8px;
+    padding: 12px 28px; font-size: 0.92rem; font-weight: 600; cursor: pointer;
+    width: 100%; transition: background 0.15s;
+  }
+  .btn-primary:hover { background: #1d4ed8; }
+
+  /* Output */
+  .output-box {
+    background: #1e293b; color: #e2e8f0; border-radius: 10px;
+    padding: 20px 22px; font-family: monospace; font-size: 0.82rem;
+    line-height: 1.7; white-space: pre-wrap; word-break: break-word;
+    margin-top: 16px; position: relative;
+  }
+  .copy-btn {
+    position: absolute; top: 12px; right: 12px; background: #334155;
+    color: #e2e8f0; border: none; border-radius: 6px; padding: 5px 12px;
+    font-size: 0.78rem; cursor: pointer;
+  }
+  .copy-btn:hover { background: #475569; }
+
+  /* Section header */
+  .section-header { font-size: 1.15rem; font-weight: 700; color: #0f172a; margin: 28px 0 14px 0; padding-bottom: 8px; border-bottom: 2px solid #e2e8f0; }
+
+  /* Expander */
+  .expander { border: 1px solid #e2e8f0; border-radius: 10px; margin-bottom: 10px; overflow: hidden; }
+  .expander-header { padding: 14px 18px; background: #f8fafc; cursor: pointer; font-weight: 600; font-size: 0.92rem; display: flex; justify-content: space-between; align-items: center; user-select: none; }
+  .expander-header:hover { background: #f1f5f9; }
+  .expander-body { padding: 16px 18px; background: white; display: none; font-size: 0.87rem; line-height: 1.7; }
+  .expander-body li { margin-bottom: 5px; }
+  .expander.open .expander-body { display: block; }
+  .expander-arrow { transition: transform 0.2s; }
+  .expander.open .expander-arrow { transform: rotate(180deg); }
+
+  /* Badge */
+  .badge { display: inline-block; padding: 3px 10px; border-radius: 12px; font-size: 0.77rem; font-weight: 600; margin: 2px; }
+  .badge-blue   { background: #dbeafe; color: #1d4ed8; }
+  .badge-gray   { background: #f1f5f9; color: #475569; }
+
+  /* Table */
+  table.info-table { width: 100%; border-collapse: collapse; font-size: 0.87rem; }
+  table.info-table th { background: #f8fafc; padding: 10px 14px; text-align: left; color: #64748b; font-size: 0.8rem; border-bottom: 2px solid #e2e8f0; }
+  table.info-table td { padding: 10px 14px; border-bottom: 1px solid #f1f5f9; }
+  table.info-table tr:hover td { background: #f8fafc; }
+
+  .success-box { background: #dcfce7; border: 1px solid #86efac; border-radius: 8px; padding: 14px 18px; font-size: 0.88rem; color: #15803d; margin-top: 16px; }
+
+  hr.divider { border: none; border-top: 1px solid #e2e8f0; margin: 24px 0; }
+
+  footer { text-align: center; color: #94a3b8; font-size: 0.8rem; padding: 24px 0 16px; }
+
+  @media (max-width: 900px) {
+    .sidebar { display: none; }
+    .main { margin-left: 0; padding: 20px; }
+    .metrics { grid-template-columns: 1fr 1fr; }
+    .flow { grid-template-columns: 1fr 1fr; }
+    .grid-2, .grid-3, .checklist { columns: 1; display: block; }
+    .grid-2 > *, .grid-3 > * { margin-bottom: 16px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="layout">
+
+<!-- SIDEBAR -->
+<div class="sidebar">
+  <h2>📊 CXP Report Guide</h2>
+  <hr>
+  <p style="font-size:0.75rem;text-transform:uppercase;letter-spacing:0.05em;color:#64748b">Navigation</p>
+  <a class="nav-link active" onclick="showTab('overview')">🏠 Overview</a>
+  <a class="nav-link" onclick="showTab('process')">⚙️ 8-Step Process</a>
+  <a class="nav-link" onclick="showTab('updates')">📝 What Gets Updated</a>
+  <a class="nav-link" onclick="showTab('structure')">🏗️ Report Structure</a>
+  <a class="nav-link" onclick="showTab('rules')">✅ CXP Rules</a>
+  <a class="nav-link" onclick="showTab('tryit')">🚀 Try It</a>
+  <hr>
+  <p>What this tool does:</p>
+  <div class="info-pill">Turns your weekly Slack/Jira/Confluence updates into a CXP-compliant status report automatically — then creates the Confluence page for you.</div>
+  <hr>
+  <p style="font-size:0.75rem;color:#475569">Nordstrom Care AI Program<br>TPM Tooling</p>
+</div>
+
+<!-- MAIN -->
+<div class="main">
+
+  <!-- Hero -->
+  <div class="hero">
+    <h1>📊 CXP Status Report Generator</h1>
+    <p>An interactive guide to how the AI-powered weekly status report workflow operates — what it searches, what it updates, and how it enforces CXP standards.</p>
+  </div>
+
+  <!-- Tabs -->
+  <div class="tab-bar">
+    <button class="tab-btn active" onclick="showTab('overview')">🏠 Overview</button>
+    <button class="tab-btn" onclick="showTab('process')">⚙️ 8-Step Process</button>
+    <button class="tab-btn" onclick="showTab('updates')">📝 What Gets Updated</button>
+    <button class="tab-btn" onclick="showTab('structure')">🏗️ Report Structure</button>
+    <button class="tab-btn" onclick="showTab('rules')">✅ CXP Rules</button>
+    <button class="tab-btn" onclick="showTab('tryit')">🚀 Try It</button>
+  </div>
+
+  <!-- ═══ TAB 1: OVERVIEW ═══ -->
+  <div id="tab-overview" class="tab-content active">
+
+    <h2 style="font-size:1.3rem;margin-bottom:8px">What Is This?</h2>
+    <p style="color:#475569;font-size:0.92rem;margin-bottom:24px">The CXP Status Report Generator is an AI workflow that reads your previous week's Confluence report, searches Slack and Jira for new updates, and produces a fully CXP-compliant status email — ready to paste into Confluence.</p>
+
+    <div class="metrics">
+      <div class="metric-card"><div class="num">8</div><div class="lbl">Automated Steps</div></div>
+      <div class="metric-card"><div class="num">3</div><div class="lbl">Data Sources Searched</div></div>
+      <div class="metric-card"><div class="num">16</div><div class="lbl">CXP Compliance Checks</div></div>
+      <div class="metric-card"><div class="num">1</div><div class="lbl">Confluence Page Created</div></div>
+    </div>
+
+    <hr class="divider">
+
+    <div class="grid-2">
+      <div>
+        <div class="section-header" style="margin-top:0">📥 Inputs You Provide</div>
+        <table class="info-table">
+          <thead><tr><th>Input</th><th>Example</th></tr></thead>
+          <tbody>
+            <tr><td>Previous report URL</td><td style="color:#0e4d92;font-size:0.8rem">confluence.nordstrom.com/pages/...</td></tr>
+            <tr><td>Slack channel(s)</td><td><code>#dr_project_rosie</code></td></tr>
+            <tr><td>Broad search term</td><td><code>"project rosie"</code></td></tr>
+            <tr><td>Jira epic key</td><td><code>DAIR-7331</code></td></tr>
+            <tr><td>Date range</td><td>Last 7 days</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div>
+        <div class="section-header" style="margin-top:0">📤 What You Get Back</div>
+        <div class="step-card" style="border-left-color:#16a34a">
+          <p>✅ <strong>Status recommendation</strong> (GREEN/YELLOW/RED) with reasoning</p>
+        </div>
+        <div class="step-card" style="border-left-color:#16a34a">
+          <p>✅ <strong>Highlights</strong> — this week's significant events only</p>
+        </div>
+        <div class="step-card" style="border-left-color:#16a34a">
+          <p>✅ <strong>Active Risks table</strong> — updated, added, or removed</p>
+        </div>
+        <div class="step-card" style="border-left-color:#16a34a">
+          <p>✅ <strong>New Confluence page</strong> created automatically with URL</p>
+        </div>
+      </div>
+    </div>
+
+    <hr class="divider">
+    <div class="section-header">🔄 High-Level Flow</div>
+    <div class="flow">
+      <div class="flow-step" style="background:#dbeafe"><div class="icon">📖</div><div class="label">Read Previous Report</div></div>
+      <div class="flow-step" style="background:#ede9fe"><div class="icon">🔍</div><div class="label">Search Slack & Jira</div></div>
+      <div class="flow-step" style="background:#dcfce7"><div class="icon">🧠</div><div class="label">Analyze Changes</div></div>
+      <div class="flow-step" style="background:#fef9c3"><div class="icon">🤝</div><div class="label">Confirm With You</div></div>
+      <div class="flow-step" style="background:#fee2e2"><div class="icon">📄</div><div class="label">Create Confluence Page</div></div>
+    </div>
+  </div>
+
+  <!-- ═══ TAB 2: PROCESS ═══ -->
+  <div id="tab-process" class="tab-content">
+    <h2 style="font-size:1.3rem;margin-bottom:6px">The 8-Step Automated Process</h2>
+    <p style="color:#475569;font-size:0.9rem;margin-bottom:24px">Each week, the AI follows these steps in order — <strong>stopping at Step 5 to check with you</strong> before writing anything.</p>
+
+    <div class="step-card"><span class="step-num">Step 1</span><h4>Parse Previous Report</h4><p>Reads the previous Confluence page using <code>get_page_content</code>. Extracts current status color, active risks, upcoming milestones, launch dates, and carry-over action items. This is the baseline everything else compares against.</p></div>
+    <div class="step-card"><span class="step-num">Step 2</span><h4>Search Specified Slack Channels</h4><p>Queries the channels you specify (e.g. <code>#dr_project_rosie</code>) for messages from the last 7 days. Filters for significant events: completions, approvals, testing results, decisions, blocker resolutions, and launch date changes.</p></div>
+    <div class="step-card" style="border-left-color:#7c3aed"><span class="step-num" style="background:#7c3aed">Step 3</span><h4>⚡ Broad Project Search — ALL Public Channels</h4><p><strong>Critical step.</strong> Searches the project name across ALL public Slack channels — not just your team channel. This catches launch announcements in stakeholder channels, executive decisions in leadership channels, and cross-team communications you'd otherwise miss.</p></div>
+    <div class="step-card"><span class="step-num">Step 4</span><h4>Jira Epic Search</h4><p>Queries the specified epic for issues updated or completed in the last 7 days. Extracts story completions, status changes (To Do → Done), blockers resolved, and key decisions in ticket comments.</p></div>
+    <div class="step-card" style="border-left-color:#f59e0b"><span class="step-num" style="background:#f59e0b">Step 5</span><h4>🤝 Recommend Status + Ask For Your Input — PAUSES HERE</h4><p>Presents findings, recommends a status color with reasoning and confidence %, then explicitly asks: "Have I missed anything? Is training complete? Are there new risks?" You correct or confirm before it writes a single word of the report.</p></div>
+    <div class="step-card"><span class="step-num">Step 6</span><h4>Update Report Sections</h4><p>After your confirmation, updates only what changed: replaces Highlights, updates Risks table, refreshes Milestones, moves completed items, updates launch dates throughout the entire document, and adds Status History entries if color or dates changed.</p></div>
+    <div class="step-card"><span class="step-num">Step 7</span><h4>Verify CXP Compliance</h4><p>Runs a 16-point checklist before generating output: single status color, dates at end of bullets, no "we/our/I" language, no vague future tense, risks table placement, no redundancy, and more.</p></div>
+    <div class="step-card"><span class="step-num">Step 8</span><h4>Create New Confluence Page</h4><p>Uses <code>Nordstrom Confluence:create_page</code> to automatically create the new page. Title format: <code>[DRAFT] MM/DD Project [Name] Status Email</code>. Returns the URL for you to review and publish.</p></div>
+
+    <hr class="divider">
+    <div class="section-header">🔍 Slack Keyword Strategy</div>
+    <div class="grid-2">
+      <div>
+        <p style="font-weight:600;margin-bottom:10px;font-size:0.9rem">✅ Keywords That Trigger Inclusion</p>
+        <div>
+          <span class="badge badge-blue">completed</span><span class="badge badge-blue">done</span><span class="badge badge-blue">finished</span><span class="badge badge-blue">merged</span><span class="badge badge-blue">approved</span><span class="badge badge-blue">signed off</span><span class="badge badge-blue">legal approval</span><span class="badge badge-blue">UAT</span><span class="badge badge-blue">QA passed</span><span class="badge badge-blue">launched</span><span class="badge badge-blue">go-live</span><span class="badge badge-blue">deployed</span><span class="badge badge-blue">unblocked</span><span class="badge badge-blue">resolved</span><span class="badge badge-blue">decided</span><span class="badge badge-blue">accelerated</span><span class="badge badge-blue">delayed</span>
+        </div>
+      </div>
+      <div>
+        <p style="font-weight:600;margin-bottom:10px;font-size:0.9rem">❌ Keywords That Get Filtered Out</p>
+        <div>
+          <span class="badge badge-gray">meeting announcement</span><span class="badge badge-gray">questions without answers</span><span class="badge badge-gray">general discussion</span><span class="badge badge-gray">process clarification</span><span class="badge badge-gray">Thanks / FYI</span><span class="badge badge-gray">routine progress update</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ TAB 3: UPDATES ═══ -->
+  <div id="tab-updates" class="tab-content">
+    <h2 style="font-size:1.3rem;margin-bottom:20px">What Gets Updated Each Week</h2>
+
+    <div class="grid-3">
+      <div>
+        <div class="section-header" style="margin-top:0;color:#15803d">🔄 Always Updated</div>
+        <div class="update-item update-green"><strong style="color:#15803d">✅ Overall Status</strong><span style="color:#166534">GREEN/YELLOW/RED based on current evidence</span></div>
+        <div class="update-item update-green"><strong style="color:#15803d">✅ Confidence Level</strong><span style="color:#166534">Refreshed % based on risks and completions</span></div>
+        <div class="update-item update-green"><strong style="color:#15803d">✅ Highlights</strong><span style="color:#166534">Replaced entirely — last 7 days only</span></div>
+        <div class="update-item update-green"><strong style="color:#15803d">✅ Active Risks</strong><span style="color:#166534">New risks added, resolved ones removed</span></div>
+        <div class="update-item update-green"><strong style="color:#15803d">✅ Upcoming Milestones</strong><span style="color:#166534">Dates updated, completed moved to Highlights</span></div>
+        <div class="update-item update-green"><strong style="color:#15803d">✅ Status History</strong><span style="color:#166534">Entry added if status or launch dates changed</span></div>
+        <div class="update-item update-green"><strong style="color:#15803d">✅ Launch Dates</strong><span style="color:#166534">Updated everywhere in doc if they changed</span></div>
+      </div>
+      <div>
+        <div class="section-header" style="margin-top:0;color:#1d4ed8">🔒 Never Changed</div>
+        <div class="update-item update-blue"><strong style="color:#1d4ed8">🔒 Project Objective</strong><span style="color:#1e40af">Unless scope formally changed</span></div>
+        <div class="update-item update-blue"><strong style="color:#1d4ed8">🔒 Success Metrics</strong><span style="color:#1e40af">Unless targets were updated</span></div>
+        <div class="update-item update-blue"><strong style="color:#1d4ed8">🔒 Resources & Contacts</strong><span style="color:#1e40af">Unless team changed</span></div>
+        <div class="update-item update-blue"><strong style="color:#1d4ed8">🔒 Phase Descriptions</strong><span style="color:#1e40af">Unless scope changed</span></div>
+      </div>
+      <div>
+        <div class="section-header" style="margin-top:0;color:#dc2626">🗑️ Removed / Archived</div>
+        <div class="update-item update-red"><strong style="color:#dc2626">🗑️ Old Highlights</strong><span style="color:#b91c1c">Last week's events fully replaced</span></div>
+        <div class="update-item update-red"><strong style="color:#dc2626">🗑️ Resolved Risks</strong><span style="color:#b91c1c">Moved to Highlights if significant</span></div>
+        <div class="update-item update-red"><strong style="color:#dc2626">🗑️ Completed Milestones</strong><span style="color:#b91c1c">Moved from Upcoming to Highlights</span></div>
+        <div class="update-item update-red"><strong style="color:#dc2626">🗑️ Outdated Dates</strong><span style="color:#b91c1c">Replaced with current information</span></div>
+      </div>
+    </div>
+
+    <hr class="divider">
+    <div class="section-header">🚦 When Does Status Color Change?</div>
+    <div class="status-bar" style="background:#fef9c3"><strong style="color:#854d0e">GREEN → YELLOW</strong><span style="color:#854d0e">New blocker identified that puts timeline at risk</span></div>
+    <div class="status-bar" style="background:#dcfce7"><strong style="color:#15803d">YELLOW → GREEN</strong><span style="color:#15803d">All blockers resolved, back on track</span></div>
+    <div class="status-bar" style="background:#fee2e2"><strong style="color:#b91c1c">YELLOW → RED</strong><span style="color:#b91c1c">Blocker will definitely cause delay, no viable mitigation</span></div>
+    <div class="status-bar" style="background:#fef9c3"><strong style="color:#854d0e">RED → YELLOW</strong><span style="color:#854d0e">Mitigation plan in place; at risk but recoverable</span></div>
+    <div class="status-bar" style="background:#dcfce7"><strong style="color:#15803d">RED → GREEN</strong><span style="color:#15803d">Rare — only if ALL critical issues resolved</span></div>
+
+    <hr class="divider">
+    <div class="section-header">📈 Confidence Level Guide</div>
+    <div class="status-bar" style="background:#dcfce7"><strong style="color:#15803d">90–100% — HIGH</strong><span style="color:#15803d">Minimal risk, milestones on track, no active blockers</span></div>
+    <div class="status-bar" style="background:#fef9c3"><strong style="color:#854d0e">70–89% — MEDIUM</strong><span style="color:#854d0e">Manageable risks, some uncertainty in timeline</span></div>
+    <div class="status-bar" style="background:#fee2e2"><strong style="color:#b91c1c">Below 70% — LOW</strong><span style="color:#b91c1c">Status should be YELLOW or RED; significant uncertainty</span></div>
+  </div>
+
+  <!-- ═══ TAB 4: STRUCTURE ═══ -->
+  <div id="tab-structure" class="tab-content">
+    <h2 style="font-size:1.3rem;margin-bottom:6px">Mandatory Report Structure</h2>
+    <p style="color:#475569;font-size:0.9rem;margin-bottom:20px">Every CXP report follows this exact structure — in this exact order. Click each section to expand.</p>
+
+    <div class="warn-box">🚨 <strong>Critical:</strong> The Active Risks table MUST appear immediately after the Executive Summary — in Position 2. This is the most commonly violated CXP standard.</div>
+
+    <div class="expander open" id="exp1">
+      <div class="expander-header" onclick="toggleExpander('exp1')">
+        <span>Section 1 — Executive Summary</span><span class="expander-arrow">▼</span>
+      </div>
+      <div class="expander-body">
+        <ul>
+          <li>Overall Status: GREEN / YELLOW / RED — one color, never "trending"</li>
+          <li>Confidence Level: "X% confident in [date] delivery"</li>
+          <li>Project Objective: exactly 1 sentence</li>
+          <li>Launch Timeline with key dates and traffic ramp plan</li>
+          <li>Status History — only if status OR launch dates changed</li>
+          <li>Success Metrics with specific numeric targets</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="expander open" id="exp2">
+      <div class="expander-header" onclick="toggleExpander('exp2')" style="background:#fff7ed;border-left:3px solid #f97316">
+        <span>⚠️ Section 2 — Active Risks Table ← CRITICAL PLACEMENT</span><span class="expander-arrow">▼</span>
+      </div>
+      <div class="expander-body">
+        <ul>
+          <li>Table columns: #, Risk, Impact, Mitigation, Owner, Due Date</li>
+          <li>Impact must specify both <strong>Timeline</strong> and <strong>Business</strong> impact — specifically</li>
+          <li>Mitigation must include concrete actions with dates</li>
+          <li>Only ACTIVE risks — resolved ones are removed (moved to Highlights)</li>
+          <li>If no active risks: state "No active risks"</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="expander open" id="exp3">
+      <div class="expander-header" onclick="toggleExpander('exp3')">
+        <span>Section 3 — Current Phase / Workstream — [STATUS]</span><span class="expander-arrow">▼</span>
+      </div>
+      <div class="expander-body">
+        <ul>
+          <li>2-3 sentence summary of current state — no more</li>
+          <li><strong>Highlights:</strong> last 7 days only, dates at END of bullet, chronological order</li>
+          <li>Format: "Event completed MM/DD" — <em>not</em> "MM/DD: Event"</li>
+          <li><strong>Upcoming Milestones:</strong> next 2-4 weeks only, "Milestone: MM/DD" format</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="expander" id="exp4">
+      <div class="expander-header" onclick="toggleExpander('exp4')">
+        <span>Section 4 — Future Phases (Appendix — Keep Minimal)</span><span class="expander-arrow">▼</span>
+      </div>
+      <div class="expander-body">
+        <ul>
+          <li>Next Phase: 2-3 sentences max</li>
+          <li>Subsequent Phases: 1 sentence each</li>
+          <li>No detailed milestones or planning content</li>
+          <li>Only include if multi-phase project</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="expander" id="exp5">
+      <div class="expander-header" onclick="toggleExpander('exp5')">
+        <span>Section 5 — Resources & Contacts</span><span class="expander-arrow">▼</span>
+      </div>
+      <div class="expander-body">
+        <ul>
+          <li>Email Distribution group with GroupID link</li>
+          <li>Program Hub (Confluence link)</li>
+          <li>Project Tracking (Jira epic link)</li>
+          <li>Core Team: Product, Engineering, Program, Principal names</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ TAB 5: RULES ═══ -->
+  <div id="tab-rules" class="tab-content">
+    <h2 style="font-size:1.3rem;margin-bottom:6px">CXP Compliance Standards</h2>
+    <p style="color:#475569;font-size:0.9rem;margin-bottom:20px">These rules are enforced automatically before any report is published.</p>
+
+    <div class="section-header">Highlights Formatting — Most Common Violations</div>
+    <div class="rule-grid">
+      <div>
+        <p style="font-weight:600;margin-bottom:8px;color:#15803d">✅ CORRECT</p>
+        <div class="rule-card rule-correct">Legal approval received 11/12</div>
+        <div class="rule-card rule-correct">Integration testing completed 11/15</div>
+        <div class="rule-card rule-correct">Technical launch completed 11/18</div>
+        <div class="rule-card rule-correct">Launch date accelerated from 12/2 to 11/24</div>
+        <div class="rule-card rule-correct">Agent training completed 11/21</div>
+      </div>
+      <div>
+        <p style="font-weight:600;margin-bottom:8px;color:#dc2626">❌ WRONG</p>
+        <div class="rule-card rule-wrong">11/12: Legal approval received</div>
+        <div class="rule-card rule-wrong">We completed integration testing</div>
+        <div class="rule-card rule-wrong">Planning to complete training</div>
+        <div class="rule-card rule-wrong">Status: YELLOW trending GREEN</div>
+        <div class="rule-card rule-wrong">Making good progress on launch</div>
+      </div>
+    </div>
+
+    <hr class="divider">
+    <div class="section-header">📋 Full 16-Point CXP Checklist</div>
+    <div class="checklist">
+      <div class="check-item"><input type="checkbox" id="c1"><label for="c1">Status is GREEN, YELLOW, or RED — never "trending"</label></div>
+      <div class="check-item"><input type="checkbox" id="c2"><label for="c2">Confidence level stated as a percentage</label></div>
+      <div class="check-item"><input type="checkbox" id="c3"><label for="c3">All highlights have dates at END of sentence</label></div>
+      <div class="check-item"><input type="checkbox" id="c4"><label for="c4">No colons after dates ("completed MM/DD" not "MM/DD:")</label></div>
+      <div class="check-item"><input type="checkbox" id="c5"><label for="c5">No "we", "our", "I", "my" language anywhere</label></div>
+      <div class="check-item"><input type="checkbox" id="c6"><label for="c6">No vague future tense ("will", "planning") — use "scheduled"</label></div>
+      <div class="check-item"><input type="checkbox" id="c7"><label for="c7">Active Risks table positioned RIGHT AFTER Executive Summary</label></div>
+      <div class="check-item"><input type="checkbox" id="c8"><label for="c8">Each fact appears ONCE only — no redundancy</label></div>
+      <div class="check-item"><input type="checkbox" id="c9"><label for="c9">Only significant events in Highlights (exception-based)</label></div>
+      <div class="check-item"><input type="checkbox" id="c10"><label for="c10">Events in chronological order (oldest to newest)</label></div>
+      <div class="check-item"><input type="checkbox" id="c11"><label for="c11">All dates in MM/DD format</label></div>
+      <div class="check-item"><input type="checkbox" id="c12"><label for="c12">Objective language — no opinions or predictions</label></div>
+      <div class="check-item"><input type="checkbox" id="c13"><label for="c13">Risk impacts are specific (Timeline + Business impact)</label></div>
+      <div class="check-item"><input type="checkbox" id="c14"><label for="c14">Mitigation includes concrete actions with dates</label></div>
+      <div class="check-item"><input type="checkbox" id="c15"><label for="c15">Launch dates updated throughout entire report if changed</label></div>
+      <div class="check-item"><input type="checkbox" id="c16"><label for="c16">Status History updated if status OR launch dates changed</label></div>
+    </div>
+
+    <hr class="divider">
+    <div class="section-header">🚫 Common Violation Reference</div>
+    <table class="vtable">
+      <thead><tr><th>❌ Violation</th><th>Why It's Wrong</th><th>✅ Correct Alternative</th></tr></thead>
+      <tbody>
+        <tr><td>We completed testing</td><td>Personalization (no "we")</td><td style="color:#15803d">Testing completed 11/15</td></tr>
+        <tr><td>Planning to launch 12/2</td><td>Vague future tense</td><td style="color:#15803d">Launch scheduled 12/2</td></tr>
+        <tr><td>Status: YELLOW trending GREEN</td><td>Unclear — pick one color</td><td style="color:#15803d">Status: YELLOW</td></tr>
+        <tr><td>Should finish by Friday</td><td>Non-committal language</td><td style="color:#15803d">Scheduled for completion 11/22</td></tr>
+        <tr><td>Team is working on API</td><td>Ongoing routine work</td><td style="color:#15803d">[Don't include — report when done]</td></tr>
+        <tr><td>11/15: API completed</td><td>Date at beginning of bullet</td><td style="color:#15803d">API completed 11/15</td></tr>
+        <tr><td>We think this will work</td><td>Opinion/prediction</td><td style="color:#15803d">[Don't include]</td></tr>
+        <tr><td>Making good progress</td><td>Subjective — no evidence</td><td style="color:#15803d">[Don't include]</td></tr>
+        <tr><td>Risk might impact timeline</td><td>Vague risk description</td><td style="color:#15803d">Risk delays 12/2 launch to 12/15</td></tr>
+        <tr><td>Continuing to work on X</td><td>Routine ongoing work</td><td style="color:#15803d">[Only report when X completes]</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- ═══ TAB 6: TRY IT ═══ -->
+  <div id="tab-tryit" class="tab-content">
+    <h2 style="font-size:1.3rem;margin-bottom:6px">🚀 Generate This Week's Report</h2>
+    <p style="color:#475569;font-size:0.9rem;margin-bottom:20px">Fill in the fields below. The form assembles your inputs into the exact prompt format Claude needs.</p>
+
+    <div class="info-box">💡 This generates a ready-to-paste prompt. Copy it into Claude to run the full 8-step automated workflow.</div>
+
+    <div class="form-section">
+      <h3>Step 1: Previous Report</h3>
+      <div class="form-group">
+        <label>Previous Confluence Report URL</label>
+        <input type="text" id="prev_url" placeholder="https://confluence.nordstrom.com/pages/viewpage.action?pageId=...">
+      </div>
+    </div>
+
+    <div class="form-section">
+      <h3>Step 2: Slack Channels</h3>
+      <div class="form-group">
+        <label>Primary Slack Channel</label>
+        <input type="text" id="primary_ch" placeholder="#dr_project_rosie">
+      </div>
+      <div class="form-group">
+        <label>Broad Search Term <small style="font-weight:400">(searched across ALL public channels)</small></label>
+        <input type="text" id="broad_search" placeholder="project rosie">
+        <small>This catches announcements in stakeholder and leadership channels you'd otherwise miss</small>
+      </div>
+      <div class="form-group">
+        <label>Additional Channels (optional, comma-separated)</label>
+        <input type="text" id="extra_ch" placeholder="#hol2025-stakeholders, #care-ai-team">
+      </div>
+    </div>
+
+    <div class="form-section">
+      <h3>Step 3: Jira</h3>
+      <div class="form-group">
+        <label>Jira Epic Key</label>
+        <input type="text" id="jira_epic" placeholder="DAIR-7331">
+      </div>
+    </div>
+
+    <div class="form-section">
+      <h3>Step 4: Context</h3>
+      <div class="form-group">
+        <label>Last Week's Status</label>
+        <select id="last_status">
+          <option value="GREEN">GREEN</option>
+          <option value="YELLOW">YELLOW</option>
+          <option value="RED">RED</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Any updates you know about that aren't in Slack/Jira yet?</label>
+        <textarea id="known_updates" rows="3" placeholder="e.g. Agent training was completed Friday. Legal approved the new disclosure language."></textarea>
+        <small>These get added to the prompt so Claude can factor them in before asking for confirmation</small>
+      </div>
+      <div class="form-group">
+        <label>Search From Date (7 days ago)</label>
+        <input type="date" id="date_from">
+      </div>
+    </div>
+
+    <button class="btn-primary" onclick="generatePrompt()">🔧 Generate Prompt</button>
+
+    <div id="output_area" style="display:none;margin-top:24px">
+      <hr class="divider">
+      <h3 style="font-size:1rem;margin-bottom:10px">✅ Your Prompt — Ready to Paste into Claude</h3>
+      <div class="output-box" id="prompt_output">
+        <button class="copy-btn" onclick="copyPrompt()">📋 Copy</button>
+        <span id="prompt_text"></span>
+      </div>
+      <div class="success-box" id="success_msg"></div>
+
+      <hr class="divider">
+      <h3 style="font-size:1rem;margin-bottom:14px">📋 What Claude Will Do Next</h3>
+      <div id="next_steps_list"></div>
+    </div>
+  </div>
+
+  <footer>CXP Status Report Generator Guide • Nordstrom Care AI Program • TPM Tooling</footer>
+
+</div><!-- /main -->
+</div><!-- /layout -->
+
+<script>
+// ─── Tab switching ────────────────────────────────────────────────────────────
+function showTab(id) {
+  document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.nav-link').forEach(a => a.classList.remove('active'));
+  document.getElementById('tab-' + id).classList.add('active');
+  document.querySelectorAll('.tab-btn').forEach(b => {
+    if (b.getAttribute('onclick') && b.getAttribute('onclick').includes(id)) b.classList.add('active');
+  });
+  document.querySelectorAll('.nav-link').forEach(a => {
+    if (a.getAttribute('onclick') && a.getAttribute('onclick').includes(id)) a.classList.add('active');
+  });
+  window.scrollTo(0, 0);
+}
+
+// ─── Expander ────────────────────────────────────────────────────────────────
+function toggleExpander(id) {
+  document.getElementById(id).classList.toggle('open');
+}
+
+// ─── Prompt generator ────────────────────────────────────────────────────────
+function generatePrompt() {
+  const url       = document.getElementById('prev_url').value.trim();
+  const primary   = document.getElementById('primary_ch').value.trim() || '#your-project-channel';
+  const broad     = document.getElementById('broad_search').value.trim() || 'project name';
+  const extra     = document.getElementById('extra_ch').value.trim();
+  const jira      = document.getElementById('jira_epic').value.trim() || 'YOUR-EPIC-KEY';
+  const status    = document.getElementById('last_status').value;
+  const updates   = document.getElementById('known_updates').value.trim();
+  const dateFrom  = document.getElementById('date_from').value;
+
+  if (!url) { alert('Please enter the previous Confluence report URL.'); return; }
+
+  const extraLine   = extra   ? `\n- Slack: ${extra}` : '';
+  const updatesLine = updates ? `\n\nADDITIONAL CONTEXT FROM TPM:\n${updates}` : '';
+  const afterClause = dateFrom ? ` after:${dateFrom}` : '';
+
+  const prompt = `Generate this week's CXP-compliant status report.
+
+PREVIOUS REPORT: ${url}
+
+DATA SOURCES TO SEARCH:
+- Slack: ${primary}${afterClause}${extra ? '\n- Slack: ' + extra : ''}
+- Slack: Also search "${broad}" broadly across ALL public channels${afterClause}
+- Jira: ${jira}${updatesLine}
+
+LAST WEEK'S STATUS: ${status}
+
+Instructions:
+1. Read the previous Confluence report using get_page_content
+2. Search all specified Slack channels and the broad project search
+3. Search the Jira epic for issues updated/completed in the last 7 days
+4. Identify status changes, completed milestones, new/resolved risks, and launch date changes
+5. STOP and ask me for confirmation — present your findings and explicitly ask:
+   - Is there anything I missed?
+   - Is agent training complete?
+   - Are there any new risks not yet documented?
+6. After my confirmation, generate the full CXP-compliant report
+7. Create a new Confluence page titled: [DRAFT] MM/DD Status Email (same space as previous)
+8. Return the URL of the new Confluence page`;
+
+  document.getElementById('prompt_text').textContent = prompt;
+  document.getElementById('output_area').style.display = 'block';
+
+  const successMsg = `Prompt generated! Copy it into Claude. It will run all 8 steps — searching Slack (${primary} + broad "${broad}" search) and Jira (${jira}), then pausing to confirm findings with you before writing anything.`;
+  document.getElementById('success_msg').textContent = successMsg;
+
+  const nextSteps = [
+    ['📖', `Read Confluence report at provided URL`, 'Extracts baseline: status, risks, milestones, launch dates'],
+    ['🔍', `Search ${primary} for last 7 days`, 'Filters for completions, approvals, decisions, blockers'],
+    ['🌐', `Search "${broad}" across all public channels`, 'Catches announcements you might have missed'],
+    ['🎫', `Query Jira epic ${jira}`, 'Finds stories completed, blockers resolved this week'],
+    ['🤝', 'Present findings + ask for your confirmation', 'Will explicitly ask about training, risks, date changes'],
+    ['✍️', 'Generate updated CXP-compliant report', 'Only after you confirm the findings are accurate'],
+    ['🏗️', 'Create new Confluence page', 'Title: [DRAFT] MM/DD Status Email, same space as previous'],
+    ['🔗', 'Return page URL', 'Ready for your review and publish'],
+  ];
+
+  const container = document.getElementById('next_steps_list');
+  container.innerHTML = nextSteps.map(([icon, action, detail]) => `
+    <div class="step-card" style="display:flex;align-items:flex-start;gap:14px">
+      <span style="font-size:1.4rem;flex-shrink:0">${icon}</span>
+      <div>
+        <strong style="font-size:0.92rem">${action}</strong><br>
+        <span style="font-size:0.83rem;color:#64748b">${detail}</span>
+      </div>
+    </div>
+  `).join('');
+
+  document.getElementById('output_area').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function copyPrompt() {
+  const text = document.getElementById('prompt_text').textContent;
+  navigator.clipboard.writeText(text).then(() => {
+    const btn = document.querySelector('.copy-btn');
+    btn.textContent = '✅ Copied!';
+    setTimeout(() => btn.textContent = '📋 Copy', 2000);
+  });
+}
+
+// Set default date to 7 days ago
+const d = new Date(); d.setDate(d.getDate() - 7);
+document.getElementById('date_from').value = d.toISOString().split('T')[0];
+</script>
+</body>
+</html>
