@@ -248,7 +248,7 @@
     <div class="metrics">
       <div class="metric-card"><div class="num">8</div><div class="lbl">Automated Steps</div></div>
       <div class="metric-card"><div class="num">3</div><div class="lbl">Data Sources Searched</div></div>
-      <div class="metric-card"><div class="num">16</div><div class="lbl">CXP Compliance Checks</div></div>
+      <div class="metric-card"><div class="num">18</div><div class="lbl">CXP Compliance Checks</div></div>
       <div class="metric-card"><div class="num">1</div><div class="lbl">Confluence Page Created</div></div>
     </div>
 
@@ -280,6 +280,9 @@
           <p>✅ <strong>Active Risks table</strong> — updated, added, or removed</p>
         </div>
         <div class="step-card" style="border-left-color:#16a34a">
+          <p>✅ <strong>Milestones marked DONE</strong> — completed items tracked in table</p>
+        </div>
+        <div class="step-card" style="border-left-color:#16a34a">
           <p>✅ <strong>New Confluence page</strong> created automatically with URL</p>
         </div>
       </div>
@@ -302,13 +305,13 @@
     <p style="color:#475569;font-size:0.9rem;margin-bottom:24px">Each week, the AI follows these steps in order — <strong>stopping at Step 5 to check with you</strong> before writing anything.</p>
 
     <div class="step-card"><span class="step-num">Step 1</span><h4>Parse Previous Report</h4><p>Reads the previous Confluence page using <code>get_page_content</code>. Extracts current status color, active risks, upcoming milestones, launch dates, and carry-over action items. This is the baseline everything else compares against.</p></div>
-    <div class="step-card"><span class="step-num">Step 2</span><h4>Search Specified Slack Channels</h4><p>Queries the channels you specify (e.g. <code>#dr_project_rosie</code>) for messages from the last 7 days. Filters for significant events: completions, approvals, testing results, decisions, blocker resolutions, and launch date changes.</p></div>
-    <div class="step-card" style="border-left-color:#7c3aed"><span class="step-num" style="background:#7c3aed">Step 3</span><h4>⚡ Broad Project Search — ALL Public Channels</h4><p><strong>Critical step.</strong> Searches the project name across ALL public Slack channels — not just your team channel. This catches launch announcements in stakeholder channels, executive decisions in leadership channels, and cross-team communications you'd otherwise miss.</p></div>
-    <div class="step-card"><span class="step-num">Step 4</span><h4>Jira Epic Search</h4><p>Queries the specified epic for issues updated or completed in the last 7 days. Extracts story completions, status changes (To Do → Done), blockers resolved, and key decisions in ticket comments.</p></div>
-    <div class="step-card" style="border-left-color:#f59e0b"><span class="step-num" style="background:#f59e0b">Step 5</span><h4>🤝 Recommend Status + Ask For Your Input — PAUSES HERE</h4><p>Presents findings, recommends a status color with reasoning and confidence %, then explicitly asks: "Have I missed anything? Is training complete? Are there new risks?" You correct or confirm before it writes a single word of the report.</p></div>
-    <div class="step-card"><span class="step-num">Step 6</span><h4>Update Report Sections</h4><p>After your confirmation, updates only what changed: replaces Highlights, updates Risks table, refreshes Milestones, moves completed items, updates launch dates throughout the entire document, and adds Status History entries if color or dates changed.</p></div>
-    <div class="step-card"><span class="step-num">Step 7</span><h4>Verify CXP Compliance</h4><p>Runs a 16-point checklist before generating output: single status color, dates at end of bullets, no "we/our/I" language, no vague future tense, risks table placement, no redundancy, and more.</p></div>
-    <div class="step-card"><span class="step-num">Step 8</span><h4>Create New Confluence Page</h4><p>Uses <code>Nordstrom Confluence:create_page</code> to automatically create the new page. Title format: <code>[DRAFT] MM/DD Project [Name] Status Email</code>. Returns the URL for you to review and publish.</p></div>
+    <div class="step-card"><span class="step-num">Step 2</span><h4>Search Data Sources — Comprehensive Approach</h4><p>Queries specified Slack channels (<code>slack_search_public_and_private</code>) AND searches the project name broadly across ALL public channels (<code>slack_search_public</code>) to catch stakeholder announcements, executive decisions, and cross-team updates. Also queries the Jira epic for issues updated or completed in the last 7 days. Multiple targeted searches — never just one.</p></div>
+    <div class="step-card" style="border-left-color:#7c3aed"><span class="step-num" style="background:#7c3aed">Step 3</span><h4>🔎 Identify Changes</h4><p>Analyzes all data found and answers: What milestones completed? What risks resolved or appeared? What decisions were made? Did launch dates change? What training or readiness items completed? Assesses whether the status color should change and builds the evidence for a confidence level recommendation.</p></div>
+    <div class="step-card" style="border-left-color:#f59e0b"><span class="step-num" style="background:#f59e0b">Step 4</span><h4>🤝 Recommend Status + Ask For Your Input — PAUSES HERE</h4><p>Presents 3-5 key findings, recommends GREEN/YELLOW/RED with reasoning and confidence %, then explicitly asks: <em>"Have I missed anything? Is agent training complete? Are there any new risks I didn't find?"</em> Waits for your confirmation and corrections before writing a single word of the report.</p></div>
+    <div class="step-card"><span class="step-num">Step 5</span><h4>Update Report Sections</h4><p>After your confirmation: replaces Highlights with this week's events, updates Risks table (add/remove), refreshes Milestones, moves completed items from Upcoming to Highlights, marks completed milestones as DONE, updates launch dates throughout the entire document, and adds Status History entries if color or dates changed.</p></div>
+    <div class="step-card"><span class="step-num">Step 6</span><h4>Verify CXP Compliance</h4><p>Runs the full 18-point checklist before generating output: single status color, dates at end of bullets, no "we/our/I" language, no vague future tense, risks table placement, no redundancy, milestones marked DONE, future phases minimized, and more.</p></div>
+    <div class="step-card"><span class="step-num">Step 7</span><h4>Generate Output in Confluence HTML Format</h4><p>Matches the EXACT formatting structure from the previous week's report — same HTML tags, table structures, CSS classes, and Confluence macros (status badges, user links, etc.). Ready to paste directly or create as a new page.</p></div>
+    <div class="step-card"><span class="step-num">Step 8</span><h4>Create New Confluence Page</h4><p>Uses <code>Nordstrom Confluence:create_page</code> to automatically create the new page in the same space as the previous report. Title format: <code>[DRAFT] MM/DD Project [Name] Status Email</code>. Returns the URL for you to review and publish.</p></div>
 
     <hr class="divider">
     <div class="section-header">🔍 Slack Keyword Strategy</div>
@@ -340,6 +343,7 @@
         <div class="update-item update-green"><strong style="color:#15803d">✅ Highlights</strong><span style="color:#166534">Replaced entirely — last 7 days only</span></div>
         <div class="update-item update-green"><strong style="color:#15803d">✅ Active Risks</strong><span style="color:#166534">New risks added, resolved ones removed</span></div>
         <div class="update-item update-green"><strong style="color:#15803d">✅ Upcoming Milestones</strong><span style="color:#166534">Dates updated, completed moved to Highlights</span></div>
+        <div class="update-item update-green"><strong style="color:#15803d">✅ Milestones Table</strong><span style="color:#166534">Completed items marked as DONE; removed from Upcoming</span></div>
         <div class="update-item update-green"><strong style="color:#15803d">✅ Status History</strong><span style="color:#166534">Entry added if status or launch dates changed</span></div>
         <div class="update-item update-green"><strong style="color:#15803d">✅ Launch Dates</strong><span style="color:#166534">Updated everywhere in doc if they changed</span></div>
       </div>
@@ -497,8 +501,10 @@
       <div class="check-item"><input type="checkbox" id="c12"><label for="c12">Objective language — no opinions or predictions</label></div>
       <div class="check-item"><input type="checkbox" id="c13"><label for="c13">Risk impacts are specific (Timeline + Business impact)</label></div>
       <div class="check-item"><input type="checkbox" id="c14"><label for="c14">Mitigation includes concrete actions with dates</label></div>
-      <div class="check-item"><input type="checkbox" id="c15"><label for="c15">Launch dates updated throughout entire report if changed</label></div>
-      <div class="check-item"><input type="checkbox" id="c16"><label for="c16">Status History updated if status OR launch dates changed</label></div>
+      <div class="check-item"><input type="checkbox" id="c15"><label for="c15">Future phases minimized (if project is in active launch phase)</label></div>
+      <div class="check-item"><input type="checkbox" id="c16"><label for="c16">Launch dates updated throughout entire report if changed</label></div>
+      <div class="check-item"><input type="checkbox" id="c17"><label for="c17">Milestones table updated to mark completed items as DONE</label></div>
+      <div class="check-item"><input type="checkbox" id="c18"><label for="c18">Status History updated if status OR launch dates changed</label></div>
     </div>
 
     <hr class="divider">
@@ -677,7 +683,7 @@ Instructions:
     ['🌐', `Search "${broad}" across all public channels`, 'Catches announcements you might have missed'],
     ['🎫', `Query Jira epic ${jira}`, 'Finds stories completed, blockers resolved this week'],
     ['🤝', 'Present findings + ask for your confirmation', 'Will explicitly ask about training, risks, date changes'],
-    ['✍️', 'Generate updated CXP-compliant report', 'Only after you confirm the findings are accurate'],
+    ['✍️', 'Generate updated CXP-compliant report', 'Only after you confirm the findings are accurate — 18-point compliance check runs automatically'],
     ['🏗️', 'Create new Confluence page', 'Title: [DRAFT] MM/DD Status Email, same space as previous'],
     ['🔗', 'Return page URL', 'Ready for your review and publish'],
   ];
